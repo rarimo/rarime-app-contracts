@@ -1,8 +1,8 @@
 {
-  "name": "hardhat-template",
-  "version": "1.0.0",
+  "name": "rarime-app-contracts",
+  "version": "0.1.0",
   "license": "MIT",
-  "author": "Distributed Lab",
+  "author": "Zero Block Global Foundation",
   "description": "",
   "scripts": {
     "install": "npx husky install",
@@ -16,11 +16,9 @@
     "deploy-localhost": "npx hardhat migrate --network localhost",
     "deploy-goerli": "npx hardhat migrate --network goerli --verify",
     "deploy-sepolia": "npx hardhat migrate --network sepolia --verify",
-    "deploy-chapel": "npx hardhat migrate --network chapel --verify",
     "deploy-mumbai": "npx hardhat migrate --network mumbai --verify",
     "deploy-fuji": "npx hardhat migrate --network fuji --verify",
     "deploy-ethereum": "npx hardhat migrate --network ethereum --verify",
-    "deploy-bsc": "npx hardhat migrate --network bsc --verify",
     "deploy-polygon": "npx hardhat migrate --network polygon --verify",
     "deploy-avalanche": "npx hardhat migrate --network avalanche --verify",
     "generate-types": "TYPECHAIN_FORCE=true npx hardhat typechain && npx hardhat gobind",
@@ -33,7 +31,9 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.0.1",
     "@openzeppelin/contracts-upgradeable": "5.0.1",
-    "@solarity/solidity-lib": "2.6.12",
+    "@solarity/solidity-lib": "2.6.13",
+    "@iden3/contracts": "1.4.3",
+    "@rarimo/evm-bridge-contracts": "1.0.2",
     "dotenv": "^16.3.1",
     "hardhat": "^2.19.0",
     "typechain": "^8.3.2"
