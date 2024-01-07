@@ -29,8 +29,8 @@
     "lint-sol-fix": "prettier --write \"contracts/**/*.sol\""
   },
   "dependencies": {
-    "@openzeppelin/contracts": "5.0.1",
-    "@openzeppelin/contracts-upgradeable": "5.0.1",
+    "@openzeppelin/contracts": "4.9.2",
+    "@openzeppelin/contracts-upgradeable": "4.9.2",
     "@solarity/solidity-lib": "2.6.13",
     "@iden3/contracts": "1.4.3",
     "@rarimo/evm-bridge-contracts": "1.0.2",
@@ -64,6 +64,7 @@
     "solidity-coverage": "^0.8.5",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "solidity-bytes-utils": "0.8.1"
   }
 }
