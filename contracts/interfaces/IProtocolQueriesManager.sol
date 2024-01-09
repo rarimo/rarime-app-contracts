@@ -4,6 +4,12 @@ pragma solidity 0.8.16;
 import {QueriesStorage} from "../libs/QueriesStorage.sol";
 
 interface IProtocolQueriesManager {
+    struct UpdateQueryBuilderEntry {
+        string validatorCircuitId;
+        address queryBuilderAddr;
+        bool isAdding;
+    }
+
     struct UpdateProtocolQueryEntry {
         string queryName;
         QueriesStorage.ProtocolQuery query;
@@ -18,6 +24,7 @@ interface IProtocolQueriesManager {
     }
 
     error ProtocolQueriesManagerQueryDoesNotExist();
+    error ProtocolQueriesManagerZeroAddress(string fieldName);
 
     function updateDefaultQueries(UpdateProtocolQueryEntry[] calldata queriesToUpdate_) external;
 

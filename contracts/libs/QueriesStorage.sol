@@ -16,6 +16,7 @@ library QueriesStorage {
         address validatorAddr;
         bytes queryData;
         bool isGroupLevel;
+        bool isStaticQuery;
     }
 
     struct ProtocolQueriesData {

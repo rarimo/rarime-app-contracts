@@ -12,6 +12,7 @@ import {CredentialAtomicQueryValidator} from "@iden3/contracts/validators/Creden
 import {QueriesStorage, ORGANIZATION_ADMIN_KEY} from "./libs/QueriesStorage.sol";
 
 import {IProtocolQueriesManager} from "./interfaces/IProtocolQueriesManager.sol";
+import {IQueryBuilder} from "./interfaces/IQueryBuilder.sol";
 
 contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
     using QueriesStorage for QueriesStorage.ProtocolQueriesData;
@@ -21,17 +22,27 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
     // Organization id (issuer id) => Protocol Queries data
     mapping(uint256 => QueriesStorage.ProtocolQueriesData) internal _organizationQueries;
 
+    mapping(string => address) internal _queryBuilders;
+
     modifier onlyOrganizationAdminCheck(ZKProofData calldata proofData_) {
         onlyOrganizationAdmin(proofData_);
         _;
     }
 
     function __ProtocolQueriesManager_init(
+        UpdateQueryBuilderEntry[] calldata queryBuildersToUpdate_,
         UpdateProtocolQueryEntry[] calldata queriesToUpdate_
     ) external initializer {
         __Ownable_init();
 
+        _updateQueryBuilders(queryBuildersToUpdate_);
         _updateQueries(_defaultProtocolQueries, queriesToUpdate_);
+    }
+
+    function updateQueryBuilders(
+        UpdateQueryBuilderEntry[] calldata queryBuildersToUpdate_
+    ) external onlyOwner {
+        _updateQueryBuilders(queryBuildersToUpdate_);
     }
 
     function updateDefaultQueries(
@@ -40,25 +51,10 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         _updateQueries(_defaultProtocolQueries, queriesToUpdate_);
     }
 
-    function _updateQueries(
-        QueriesStorage.ProtocolQueriesData storage _queriesData,
-        UpdateProtocolQueryEntry[] calldata queriesToUpdate_
-    ) internal {
-        for (uint256 i = 0; i < queriesToUpdate_.length; i++) {
-            UpdateProtocolQueryEntry calldata currentQueryEntry_ = queriesToUpdate_[i];
-
-            if (currentQueryEntry_.isAdding) {
-                _queriesData.updateQuery(currentQueryEntry_.queryName, currentQueryEntry_.query);
-            } else {
-                _queriesData.removeQuery(currentQueryEntry_.queryName);
-            }
-        }
-    }
-
     function updateOrganizationQueries(
         ZKProofData calldata orgAdminProofData_,
         UpdateProtocolQueryEntry[] calldata queriesToUpdate_
-    ) external {
+    ) external onlyOrganizationAdminCheck(orgAdminProofData_) {
         _updateQueries(
             _organizationQueries[getOrganizationId(orgAdminProofData_.inputs)],
             queriesToUpdate_
@@ -82,6 +78,14 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         return _defaultProtocolQueries.getProtocolQuery(queryName_);
     }
 
+    function getDynamicQueryData(
+        address validatorAddr_,
+        uint256[] memory newValues_,
+        bytes memory currentQueryData_
+    ) external view returns (bytes memory) {
+        return IQueryBuilder(validatorAddr_).buildQuery(currentQueryData_, newValues_);
+    }
+
     function getOrganizationId(uint256[] memory inputs_) public view returns (uint256) {
         address validatorAddr_ = _defaultProtocolQueries.getProtocolQueryValidator(
             ORGANIZATION_ADMIN_KEY
@@ -103,8 +107,57 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         return _defaultProtocolQueries.contains(queryName_);
     }
 
+    function isValidatorCircuitIdSupported(
+        string memory validatorCircuitId_
+    ) public view returns (bool) {
+        return _queryBuilders[validatorCircuitId_] != address(0);
+    }
+
+    function getQueryBuilder(string memory validatorCircuitId_) public view returns (address) {
+        return _queryBuilders[validatorCircuitId_];
+    }
+
     function onlyOrganizationAdmin(ZKProofData calldata proofData_) public view {
         _verifyProof(proofData_, _defaultProtocolQueries.getOrganizationAdminQuery());
+    }
+
+    function _updateQueryBuilders(
+        UpdateQueryBuilderEntry[] calldata queryBuildersToUpdate_
+    ) internal {
+        for (uint256 i = 0; i < queryBuildersToUpdate_.length; i++) {
+            UpdateQueryBuilderEntry calldata currentQueryBuilderEntry_ = queryBuildersToUpdate_[i];
+
+            if (currentQueryBuilderEntry_.isAdding) {
+                if (currentQueryBuilderEntry_.queryBuilderAddr == address(0)) {
+                    revert ProtocolQueriesManagerZeroAddress("QueryBuilder");
+                }
+
+                _queryBuilders[
+                    currentQueryBuilderEntry_.validatorCircuitId
+                ] = currentQueryBuilderEntry_.queryBuilderAddr;
+            } else {
+                delete _queryBuilders[currentQueryBuilderEntry_.validatorCircuitId];
+            }
+        }
+    }
+
+    function _updateQueries(
+        QueriesStorage.ProtocolQueriesData storage _queriesData,
+        UpdateProtocolQueryEntry[] calldata queriesToUpdate_
+    ) internal {
+        for (uint256 i = 0; i < queriesToUpdate_.length; i++) {
+            UpdateProtocolQueryEntry calldata currentQueryEntry_ = queriesToUpdate_[i];
+
+            if (currentQueryEntry_.isAdding) {
+                if (currentQueryEntry_.query.validatorAddr == address(0)) {
+                    revert ProtocolQueriesManagerZeroAddress("QueryValidator");
+                }
+
+                _queriesData.updateQuery(currentQueryEntry_.queryName, currentQueryEntry_.query);
+            } else {
+                _queriesData.removeQuery(currentQueryEntry_.queryName);
+            }
+        }
     }
 
     function _verifyProof(
