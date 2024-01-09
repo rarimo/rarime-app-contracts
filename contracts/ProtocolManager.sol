@@ -11,6 +11,8 @@ import {ICircuitValidator} from "@iden3/contracts/interfaces/ICircuitValidator.s
 import {PrimitiveTypeUtils} from "@iden3/contracts/lib/PrimitiveTypeUtils.sol";
 import {CredentialAtomicQueryValidator} from "@iden3/contracts/validators/CredentialAtomicQueryValidator.sol";
 
+import {QueriesStorage, GROUP_MEMBER_KEY} from "./libs/QueriesStorage.sol";
+
 import {IProtocolManager} from "./interfaces/IProtocolManager.sol";
 import {IProtocolQueriesManager} from "./interfaces/IProtocolQueriesManager.sol";
 import {ITokensFactory} from "./interfaces/ITokensFactory.sol";
@@ -107,10 +109,10 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
 
         _onlyProtocolIssuer(issuerId_);
 
-        string memory groupMemberKey = queriesManager.GROUP_MEMBER_KEY();
+        bytes32 groupMemberKeyHash_ = keccak256(abi.encodePacked(GROUP_MEMBER_KEY));
 
-        bool isGroupMemberChecked;
-        bool isGroupLevelNeeded;
+        bool isGroupMemberChecked_;
+        bool isGroupLevelNeeded_;
 
         for (uint256 i = 0; i < mintTokensData_.length; i++) {
             MintTokensData calldata currentMintData_ = mintTokensData_[i];
@@ -124,11 +126,13 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
 
             _onlyExistingQuery(issuerId_, currentMintData_.queryName);
 
-            IProtocolQueriesManager.ProtocolQuery memory currentQuery_ = queriesManager
-                .getProtocolQuery(issuerId_, currentMintData_.queryName);
+            QueriesStorage.ProtocolQuery memory currentQuery_ = queriesManager.getProtocolQuery(
+                issuerId_,
+                currentMintData_.queryName
+            );
 
-            if (currentQuery_.isGroupLevel && !isGroupLevelNeeded) {
-                isGroupLevelNeeded = true;
+            if (currentQuery_.isGroupLevel && !isGroupLevelNeeded_) {
+                isGroupLevelNeeded_ = true;
             }
 
             ICircuitValidator(currentQuery_.validatorAddr).verify(
@@ -145,11 +149,8 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
                 currentMintData_.proofData.inputs
             );
 
-            if (
-                keccak256(abi.encodePacked(currentMintData_.queryName)) ==
-                keccak256(abi.encodePacked(groupMemberKey))
-            ) {
-                isGroupMemberChecked = true;
+            if (keccak256(abi.encodePacked(currentMintData_.queryName)) == groupMemberKeyHash_) {
+                isGroupMemberChecked_ = true;
             } else {
                 _onlyExistingToken(issuerId_, currentMintData_.queryName);
 
@@ -168,7 +169,7 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
             }
         }
 
-        if (isGroupLevelNeeded && !isGroupMemberChecked) {
+        if (isGroupLevelNeeded_ && !isGroupMemberChecked_) {
             revert ProtocolManagerProofOfTheGroupNotVerified();
         }
     }

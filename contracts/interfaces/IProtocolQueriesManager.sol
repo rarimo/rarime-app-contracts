@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-interface IProtocolQueriesManager {
-    struct ProtocolQuery {
-        string metadata;
-        address validatorAddr;
-        bytes queryData;
-        bool isGroupLevel;
-    }
+import {QueriesStorage} from "../libs/QueriesStorage.sol";
 
+interface IProtocolQueriesManager {
     struct UpdateProtocolQueryEntry {
         string queryName;
-        ProtocolQuery query;
+        QueriesStorage.ProtocolQuery query;
         bool isAdding;
     }
 
@@ -31,18 +26,14 @@ interface IProtocolQueriesManager {
         UpdateProtocolQueryEntry[] calldata queriesToUpdate_
     ) external;
 
-    function ORGANIZATION_ADMIN_KEY() external view returns (string memory);
-
-    function GROUP_MEMBER_KEY() external view returns (string memory);
-
     function getProtocolQuery(
         uint256 organizationId_,
         string memory queryName_
-    ) external view returns (ProtocolQuery memory resultQuery_);
+    ) external view returns (QueriesStorage.ProtocolQuery memory resultQuery_);
 
     function getDefaultProtocolQuery(
         string memory queryName_
-    ) external view returns (ProtocolQuery memory);
+    ) external view returns (QueriesStorage.ProtocolQuery memory);
 
     function getOrganizationId(uint256[] memory inputs_) external view returns (uint256);
 
