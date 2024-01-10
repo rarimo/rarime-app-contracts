@@ -6,7 +6,6 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {StringSet} from "@solarity/solidity-lib/libs/data-structures/StringSet.sol";
 
 string constant ORGANIZATION_ADMIN_KEY = "ORGANIZATION_ADMIN";
-string constant GROUP_MEMBER_KEY = "GROUP_MEMBER";
 
 library QueriesStorage {
     using StringSet for StringSet.Set;
@@ -21,19 +20,20 @@ library QueriesStorage {
 
     struct ProtocolQueriesData {
         mapping(string => ProtocolQuery) protocolQueries;
-        StringSet.Set supportedQueries;
     }
+
+    error QueriesStorageZeroQueryValidatorAddr();
 
     function updateQuery(
         ProtocolQueriesData storage queriesData,
         string memory queryName_,
         ProtocolQuery memory query_
     ) internal {
-        queriesData.protocolQueries[queryName_] = query_;
-
-        if (!contains(queriesData, queryName_)) {
-            queriesData.supportedQueries.add(queryName_);
+        if (query_.validatorAddr == address(0)) {
+            revert QueriesStorageZeroQueryValidatorAddr();
         }
+
+        queriesData.protocolQueries[queryName_] = query_;
     }
 
     function removeQuery(
@@ -42,7 +42,6 @@ library QueriesStorage {
     ) internal returns (bool) {
         if (contains(queriesData, queryName_)) {
             delete queriesData.protocolQueries[queryName_];
-            queriesData.supportedQueries.remove(queryName_);
 
             return true;
         } else {
@@ -54,7 +53,7 @@ library QueriesStorage {
         ProtocolQueriesData storage queriesData,
         string memory queryName_
     ) internal view returns (bool) {
-        return queriesData.supportedQueries.contains(queryName_);
+        return queriesData.protocolQueries[queryName_].validatorAddr != address(0);
     }
 
     function getOrganizationAdminQuery(

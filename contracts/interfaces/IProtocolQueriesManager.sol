@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+import {ZKProofsHelper} from "../libs/ZKProofsHelper.sol";
 import {QueriesStorage} from "../libs/QueriesStorage.sol";
 
 interface IProtocolQueriesManager {
@@ -16,14 +17,7 @@ interface IProtocolQueriesManager {
         bool isAdding;
     }
 
-    struct ZKProofData {
-        uint256[2] a;
-        uint256[2][2] b;
-        uint256[2] c;
-        uint256[] inputs;
-    }
-
-    error ProtocolQueriesManagerQueryDoesNotExist();
+    error ProtocolQueriesManagerQueryDoesNotExist(string queryKey);
     error ProtocolQueriesManagerZeroAddress(string fieldName);
 
     function updateQueryBuilders(
@@ -33,7 +27,7 @@ interface IProtocolQueriesManager {
     function updateDefaultQueries(UpdateProtocolQueryEntry[] calldata queriesToUpdate_) external;
 
     function updateOrganizationQueries(
-        ZKProofData calldata orgAdminProofData_,
+        ZKProofsHelper.ZKProofData calldata orgAdminProofData_,
         UpdateProtocolQueryEntry[] calldata queriesToUpdate_
     ) external;
 
@@ -49,6 +43,11 @@ interface IProtocolQueriesManager {
         uint256 organizationId_,
         string memory queryName_
     ) external view returns (QueriesStorage.ProtocolQuery memory resultQuery_);
+
+    function getOrganizationAdminQuery()
+        external
+        view
+        returns (QueriesStorage.ProtocolQuery memory resultQuery_);
 
     function getProtocolQueryValidator(
         uint256 organizationId_,
@@ -69,7 +68,12 @@ interface IProtocolQueriesManager {
         string memory queryName_
     ) external view returns (QueriesStorage.ProtocolQuery memory);
 
-    function getOrganizationId(uint256[] memory inputs_) external view returns (uint256);
+    function getOrganizationAdminQueryValidator() external view returns (address);
+
+    function verifyOrganizationAdmin(
+        address proofSender_,
+        ZKProofsHelper.ZKProofData calldata orgAdminProofData_
+    ) external view returns (uint256);
 
     function isProtocolQueryExist(
         uint256 organizationId_,
@@ -81,6 +85,4 @@ interface IProtocolQueriesManager {
     function isValidatorCircuitIdSupported(
         string memory validatorCircuitId_
     ) external view returns (bool);
-
-    function onlyOrganizationAdmin(ZKProofData calldata proofData_) external view;
 }

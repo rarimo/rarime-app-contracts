@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IProtocolQueriesManager} from "./IProtocolQueriesManager.sol";
+import {ZKProofsHelper} from "../libs/ZKProofsHelper.sol";
 
 interface IProtocolManager {
     struct BaseProofData {
+        uint256 organizationId;
         string queryName;
-        IProtocolQueriesManager.ZKProofData proofData;
+        ZKProofsHelper.ZKProofData proofData;
         uint256 groupId;
     }
 
@@ -33,12 +34,13 @@ interface IProtocolManager {
     error ProtocolManagerQueryDoesNotExist(uint256 organizationId, string queryName);
     error ProtocolManagerTokenIsAlreadyDeployed(uint256 organizationId, bytes32 queryKey);
     error ProtocolManagerZeroTokenAddr(uint256 organizationId, uint256 groupId, string queryName);
-    error ProtocolManagerInvalidProofChallenge();
     error ProtocolManagerZeroMintTokensDataArr();
-    error ProtocolManagerInvalidOrganizationId();
     error ProtocolManagerUserAlreadyHasTheToken(address userAddr, address tokenAddr);
-    error ProtocolManagerProofOfTheGroupNotVerified();
     error ProtocolManagerUnsupportedValidatorCircuitId(string validatorCircuitId);
+    error ProtocolManagerInvalidaOrganizationId(
+        uint256 organizationId,
+        uint256 proofOrganizationId
+    );
 
     function updateProtocolIssuers(uint256[] calldata issuersToUpdate_, bool isAdding_) external;
 

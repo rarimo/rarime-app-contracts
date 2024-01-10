@@ -10,12 +10,14 @@ import {IZKPVerifier} from "@iden3/contracts/interfaces/IZKPVerifier.sol";
 import {CredentialAtomicQueryValidator} from "@iden3/contracts/validators/CredentialAtomicQueryValidator.sol";
 
 import {QueriesStorage, ORGANIZATION_ADMIN_KEY} from "./libs/QueriesStorage.sol";
+import {ZKProofsHelper} from "./libs/ZKProofsHelper.sol";
 
 import {IProtocolQueriesManager} from "./interfaces/IProtocolQueriesManager.sol";
 import {IQueryBuilder} from "./interfaces/IQueryBuilder.sol";
 
 contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
     using QueriesStorage for QueriesStorage.ProtocolQueriesData;
+    using ZKProofsHelper for ZKProofsHelper.ZKProofData;
 
     QueriesStorage.ProtocolQueriesData internal _defaultProtocolQueries;
 
@@ -23,11 +25,6 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
     mapping(uint256 => QueriesStorage.ProtocolQueriesData) internal _organizationQueries;
 
     mapping(string => address) internal _queryBuilders;
-
-    modifier onlyOrganizationAdminCheck(ZKProofData calldata proofData_) {
-        onlyOrganizationAdmin(proofData_);
-        _;
-    }
 
     function __ProtocolQueriesManager_init(
         UpdateQueryBuilderEntry[] calldata queryBuildersToUpdate_,
@@ -52,13 +49,12 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
     }
 
     function updateOrganizationQueries(
-        ZKProofData calldata orgAdminProofData_,
+        ZKProofsHelper.ZKProofData calldata orgAdminProofData_,
         UpdateProtocolQueryEntry[] calldata queriesToUpdate_
-    ) external onlyOrganizationAdminCheck(orgAdminProofData_) {
-        _updateQueries(
-            _organizationQueries[getOrganizationId(orgAdminProofData_.inputs)],
-            queriesToUpdate_
-        );
+    ) external {
+        uint256 organizationId_ = verifyOrganizationAdmin(msg.sender, orgAdminProofData_);
+
+        _updateQueries(_organizationQueries[organizationId_], queriesToUpdate_);
     }
 
     function getQueryBuilder(string memory validatorCircuitId_) external view returns (address) {
@@ -78,6 +74,14 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         string memory queryName_
     ) external view returns (QueriesStorage.ProtocolQuery memory resultQuery_) {
         return _getProtocolQueriesData(organizationId_, queryName_).getProtocolQuery(queryName_);
+    }
+
+    function getOrganizationAdminQuery()
+        external
+        view
+        returns (QueriesStorage.ProtocolQuery memory resultQuery_)
+    {
+        return _defaultProtocolQueries.getOrganizationAdminQuery();
     }
 
     function getProtocolQueryValidator(
@@ -110,12 +114,24 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         return _defaultProtocolQueries.getProtocolQuery(queryName_);
     }
 
-    function getOrganizationId(uint256[] memory inputs_) public view returns (uint256) {
-        address validatorAddr_ = _defaultProtocolQueries.getProtocolQueryValidator(
-            ORGANIZATION_ADMIN_KEY
+    function getOrganizationAdminQueryValidator() public view returns (address) {
+        return _defaultProtocolQueries.getProtocolQueryValidator(ORGANIZATION_ADMIN_KEY);
+    }
+
+    function verifyOrganizationAdmin(
+        address proofSender_,
+        ZKProofsHelper.ZKProofData calldata orgAdminProofData_
+    ) public view returns (uint256) {
+        QueriesStorage.ProtocolQuery memory orgAdminQuery_ = _defaultProtocolQueries
+            .getOrganizationAdminQuery();
+
+        orgAdminProofData_.verifyProof(
+            proofSender_,
+            orgAdminQuery_.validatorAddr,
+            orgAdminQuery_.queryData
         );
 
-        return inputs_[CredentialAtomicQueryValidator(validatorAddr_).inputIndexOf("issuerId")];
+        return orgAdminProofData_.getOrganizationId(orgAdminQuery_.validatorAddr);
     }
 
     function isProtocolQueryExist(
@@ -135,10 +151,6 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         string memory validatorCircuitId_
     ) public view returns (bool) {
         return _queryBuilders[validatorCircuitId_] != address(0);
-    }
-
-    function onlyOrganizationAdmin(ZKProofData calldata proofData_) public view {
-        _verifyProof(proofData_, _defaultProtocolQueries.getOrganizationAdminQuery());
     }
 
     function _updateQueryBuilders(
@@ -169,14 +181,14 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
             UpdateProtocolQueryEntry calldata currentQueryEntry_ = queriesToUpdate_[i];
 
             if (currentQueryEntry_.isAdding) {
-                if (currentQueryEntry_.query.validatorAddr == address(0)) {
-                    revert ProtocolQueriesManagerZeroAddress("QueryValidator");
-                }
-
                 _queriesData.updateQuery(currentQueryEntry_.queryName, currentQueryEntry_.query);
             } else {
                 _queriesData.removeQuery(currentQueryEntry_.queryName);
             }
+        }
+
+        if (!isDefaultQueryExist(ORGANIZATION_ADMIN_KEY)) {
+            revert ProtocolQueriesManagerQueryDoesNotExist(ORGANIZATION_ADMIN_KEY);
         }
     }
 
@@ -188,18 +200,5 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
             isDefaultQueryExist(queryName_)
                 ? _defaultProtocolQueries
                 : _organizationQueries[organizationId_];
-    }
-
-    function _verifyProof(
-        ZKProofData calldata proofData_,
-        QueriesStorage.ProtocolQuery memory query_
-    ) internal view {
-        ICircuitValidator(query_.validatorAddr).verify(
-            proofData_.inputs,
-            proofData_.a,
-            proofData_.b,
-            proofData_.c,
-            query_.queryData
-        );
     }
 }

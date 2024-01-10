@@ -13,7 +13,8 @@ import {PoseidonFacade} from "@iden3/contracts/lib/Poseidon.sol";
 import {PrimitiveTypeUtils} from "@iden3/contracts/lib/PrimitiveTypeUtils.sol";
 import {CredentialAtomicQueryValidator} from "@iden3/contracts/validators/CredentialAtomicQueryValidator.sol";
 
-import {QueriesStorage, GROUP_MEMBER_KEY} from "./libs/QueriesStorage.sol";
+import {QueriesStorage} from "./libs/QueriesStorage.sol";
+import {ZKProofsHelper} from "./libs/ZKProofsHelper.sol";
 
 import {IProtocolManager} from "./interfaces/IProtocolManager.sol";
 import {IProtocolQueriesManager} from "./interfaces/IProtocolQueriesManager.sol";
@@ -23,6 +24,7 @@ import {IVerifiedSBT} from "./interfaces/tokens/IVerifiedSBT.sol";
 contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
     using EnumerableSet for EnumerableSet.UintSet;
     using SetHelper for EnumerableSet.UintSet;
+    using ZKProofsHelper for ZKProofsHelper.ZKProofData;
     using TypeCaster for *;
 
     ITokensFactory public tokensFactory;
@@ -60,23 +62,30 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
         BaseProofData calldata orgAdminProofData_,
         string calldata newBaseTokenURI_
     ) external override {
-        queriesManager.onlyOrganizationAdmin(orgAdminProofData_.proofData);
+        _onlyProtocolIssuer(orgAdminProofData_.organizationId);
+        _onlyExistingToken(
+            orgAdminProofData_.organizationId,
+            orgAdminProofData_.groupId,
+            orgAdminProofData_.queryName
+        );
 
-        uint256 issuerId_ = queriesManager.getOrganizationId(orgAdminProofData_.proofData.inputs);
+        uint256 proofOrganizationId_ = queriesManager.verifyOrganizationAdmin(
+            msg.sender,
+            orgAdminProofData_.proofData
+        );
 
-        _onlyProtocolIssuer(issuerId_);
-        _onlyExistingToken(issuerId_, orgAdminProofData_.groupId, orgAdminProofData_.queryName);
+        _checkOrganizationId(orgAdminProofData_.organizationId, proofOrganizationId_);
 
         IVerifiedSBT(
             getOrganizationToken(
-                issuerId_,
+                proofOrganizationId_,
                 orgAdminProofData_.groupId,
                 orgAdminProofData_.queryName
             )
         ).setBaseURI(newBaseTokenURI_);
 
         emit BaseTokenURIChanged(
-            issuerId_,
+            proofOrganizationId_,
             orgAdminProofData_.groupId,
             orgAdminProofData_.queryName,
             newBaseTokenURI_
@@ -89,28 +98,35 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
         string calldata tokenSymbol_,
         string calldata tokenBaseURI_
     ) external override {
-        queriesManager.onlyOrganizationAdmin(orgAdminProofData_.proofData);
+        _onlyProtocolIssuer(orgAdminProofData_.organizationId);
 
-        uint256 issuerId_ = queriesManager.getOrganizationId(orgAdminProofData_.proofData.inputs);
+        uint256 proofOrganizationId_ = queriesManager.verifyOrganizationAdmin(
+            msg.sender,
+            orgAdminProofData_.proofData
+        );
 
-        _onlyProtocolIssuer(issuerId_);
+        _checkOrganizationId(orgAdminProofData_.organizationId, proofOrganizationId_);
 
-        if (!queriesManager.isProtocolQueryExist(issuerId_, orgAdminProofData_.queryName)) {
-            revert ProtocolManagerQueryDoesNotExist(issuerId_, orgAdminProofData_.queryName);
-        }
-
-        bytes32 queryKey_;
-
-        if (queriesManager.isGroupLevelQuery(issuerId_, orgAdminProofData_.queryName)) {
-            queryKey_ = keccak256(
-                abi.encodePacked(orgAdminProofData_.groupId, orgAdminProofData_.queryName)
+        if (
+            !queriesManager.isProtocolQueryExist(
+                proofOrganizationId_,
+                orgAdminProofData_.queryName
+            )
+        ) {
+            revert ProtocolManagerQueryDoesNotExist(
+                proofOrganizationId_,
+                orgAdminProofData_.queryName
             );
-        } else {
-            queryKey_ = keccak256(abi.encodePacked(orgAdminProofData_.queryName));
         }
 
-        if (_organizationTokens[issuerId_][queryKey_] != address(0)) {
-            revert ProtocolManagerTokenIsAlreadyDeployed(issuerId_, queryKey_);
+        bytes32 queryKey_ = getTokenQueryKey(
+            proofOrganizationId_,
+            orgAdminProofData_.groupId,
+            orgAdminProofData_.queryName
+        );
+
+        if (_organizationTokens[proofOrganizationId_][queryKey_] != address(0)) {
+            revert ProtocolManagerTokenIsAlreadyDeployed(proofOrganizationId_, queryKey_);
         }
 
         address newTokenAddr_ = tokensFactory.deployVerifiedSBT(
@@ -119,10 +135,10 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
             tokenBaseURI_
         );
 
-        _organizationTokens[issuerId_][queryKey_] = newTokenAddr_;
+        _organizationTokens[proofOrganizationId_][queryKey_] = newTokenAddr_;
 
         emit VerifiedSBTDeployed(
-            issuerId_,
+            proofOrganizationId_,
             orgAdminProofData_.groupId,
             orgAdminProofData_.queryName,
             newTokenAddr_
@@ -137,26 +153,30 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
         for (uint256 i = 0; i < mintTokensData_.length; i++) {
             MintTokensData calldata currentMintData_ = mintTokensData_[i];
 
-            uint256 issuerId_ = queriesManager.getOrganizationId(
-                currentMintData_.baseProofData.proofData.inputs
+            _onlyProtocolIssuer(currentMintData_.baseProofData.organizationId);
+            _onlyExistingQuery(
+                currentMintData_.baseProofData.organizationId,
+                currentMintData_.baseProofData.queryName
             );
-
-            _onlyProtocolIssuer(issuerId_);
-
-            if (issuerId_ == 0) {
-                revert ProtocolManagerInvalidOrganizationId();
-            }
-
-            _onlyExistingQuery(issuerId_, currentMintData_.baseProofData.queryName);
             _onlyExistingToken(
-                issuerId_,
+                currentMintData_.baseProofData.organizationId,
                 currentMintData_.baseProofData.groupId,
                 currentMintData_.baseProofData.queryName
             );
 
             QueriesStorage.ProtocolQuery memory currentQuery_ = queriesManager.getProtocolQuery(
-                issuerId_,
+                currentMintData_.baseProofData.organizationId,
                 currentMintData_.baseProofData.queryName
+            );
+
+            uint256 proofOrganizationId_ = currentMintData_
+                .baseProofData
+                .proofData
+                .getOrganizationId(currentQuery_.validatorAddr);
+
+            _checkOrganizationId(
+                currentMintData_.baseProofData.organizationId,
+                proofOrganizationId_
             );
 
             if (!currentQuery_.isStaticQuery) {
@@ -180,23 +200,15 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
                 );
             }
 
-            ICircuitValidator(currentQuery_.validatorAddr).verify(
-                currentMintData_.baseProofData.proofData.inputs,
-                currentMintData_.baseProofData.proofData.a,
-                currentMintData_.baseProofData.proofData.b,
-                currentMintData_.baseProofData.proofData.c,
-                currentQuery_.queryData
-            );
-
-            _checkChallenge(
+            currentMintData_.baseProofData.proofData.verifyProof(
                 msg.sender,
                 currentQuery_.validatorAddr,
-                currentMintData_.baseProofData.proofData.inputs
+                currentQuery_.queryData
             );
 
             IVerifiedSBT currentToken_ = IVerifiedSBT(
                 getOrganizationToken(
-                    issuerId_,
+                    proofOrganizationId_,
                     currentMintData_.baseProofData.groupId,
                     currentMintData_.baseProofData.queryName
                 )
@@ -263,17 +275,12 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
         }
     }
 
-    function _checkChallenge(
-        address sender_,
-        address validatorAddr_,
-        uint256[] calldata inputs_
-    ) internal view {
-        uint256 challenge_ = inputs_[
-            CredentialAtomicQueryValidator(validatorAddr_).inputIndexOf("challenge")
-        ];
-
-        if (sender_ != PrimitiveTypeUtils.int256ToAddress(challenge_)) {
-            revert ProtocolManagerInvalidProofChallenge();
+    function _checkOrganizationId(
+        uint256 organizationId_,
+        uint256 proofOrganizationId_
+    ) internal pure {
+        if (organizationId_ != proofOrganizationId_) {
+            revert ProtocolManagerInvalidaOrganizationId(organizationId_, proofOrganizationId_);
         }
     }
 }
