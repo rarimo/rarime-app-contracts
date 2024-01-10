@@ -61,21 +61,8 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         );
     }
 
-    function getProtocolQuery(
-        uint256 organizationId_,
-        string memory queryName_
-    ) external view returns (QueriesStorage.ProtocolQuery memory resultQuery_) {
-        resultQuery_ = getDefaultProtocolQuery(queryName_);
-
-        if (resultQuery_.validatorAddr == address(0)) {
-            resultQuery_ = _organizationQueries[organizationId_].getProtocolQuery(queryName_);
-        }
-    }
-
-    function getDefaultProtocolQuery(
-        string memory queryName_
-    ) public view returns (QueriesStorage.ProtocolQuery memory) {
-        return _defaultProtocolQueries.getProtocolQuery(queryName_);
+    function getQueryBuilder(string memory validatorCircuitId_) external view returns (address) {
+        return _queryBuilders[validatorCircuitId_];
     }
 
     function getDynamicQueryData(
@@ -84,6 +71,43 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         bytes memory currentQueryData_
     ) external view returns (bytes memory) {
         return IQueryBuilder(validatorAddr_).buildQuery(currentQueryData_, newValues_);
+    }
+
+    function getProtocolQuery(
+        uint256 organizationId_,
+        string memory queryName_
+    ) external view returns (QueriesStorage.ProtocolQuery memory resultQuery_) {
+        return _getProtocolQueriesData(organizationId_, queryName_).getProtocolQuery(queryName_);
+    }
+
+    function getProtocolQueryValidator(
+        uint256 organizationId_,
+        string memory queryName_
+    ) external view returns (address) {
+        return
+            _getProtocolQueriesData(organizationId_, queryName_).getProtocolQueryValidator(
+                queryName_
+            );
+    }
+
+    function isGroupLevelQuery(
+        uint256 organizationId_,
+        string memory queryName_
+    ) external view returns (bool) {
+        return _getProtocolQueriesData(organizationId_, queryName_).isGroupLevelQuery(queryName_);
+    }
+
+    function isStaticQuery(
+        uint256 organizationId_,
+        string memory queryName_
+    ) external view returns (bool) {
+        return _getProtocolQueriesData(organizationId_, queryName_).isStaticQuery(queryName_);
+    }
+
+    function getDefaultProtocolQuery(
+        string memory queryName_
+    ) public view returns (QueriesStorage.ProtocolQuery memory) {
+        return _defaultProtocolQueries.getProtocolQuery(queryName_);
     }
 
     function getOrganizationId(uint256[] memory inputs_) public view returns (uint256) {
@@ -111,10 +135,6 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
         string memory validatorCircuitId_
     ) public view returns (bool) {
         return _queryBuilders[validatorCircuitId_] != address(0);
-    }
-
-    function getQueryBuilder(string memory validatorCircuitId_) public view returns (address) {
-        return _queryBuilders[validatorCircuitId_];
     }
 
     function onlyOrganizationAdmin(ZKProofData calldata proofData_) public view {
@@ -158,6 +178,16 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
                 _queriesData.removeQuery(currentQueryEntry_.queryName);
             }
         }
+    }
+
+    function _getProtocolQueriesData(
+        uint256 organizationId_,
+        string memory queryName_
+    ) internal view returns (QueriesStorage.ProtocolQueriesData storage) {
+        return
+            isDefaultQueryExist(queryName_)
+                ? _defaultProtocolQueries
+                : _organizationQueries[organizationId_];
     }
 
     function _verifyProof(

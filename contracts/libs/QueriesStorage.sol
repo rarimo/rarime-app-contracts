@@ -76,4 +76,18 @@ library QueriesStorage {
     ) internal view returns (address) {
         return queriesData.protocolQueries[queryName_].validatorAddr;
     }
+
+    function isGroupLevelQuery(
+        ProtocolQueriesData storage queriesData,
+        string memory queryName_
+    ) internal view returns (bool) {
+        return queriesData.protocolQueries[queryName_].isGroupLevel;
+    }
+
+    function isStaticQuery(
+        ProtocolQueriesData storage queriesData,
+        string memory queryName_
+    ) internal view returns (bool) {
+        return queriesData.protocolQueries[queryName_].isStaticQuery;
+    }
 }
