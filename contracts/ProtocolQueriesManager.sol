@@ -62,11 +62,15 @@ contract ProtocolQueriesManager is IProtocolQueriesManager, OwnableUpgradeable {
     }
 
     function getDynamicQueryData(
-        address validatorAddr_,
+        string memory validatorCircuitId_,
         uint256[] memory newValues_,
         bytes memory currentQueryData_
     ) external view returns (bytes memory) {
-        return IQueryBuilder(validatorAddr_).buildQuery(currentQueryData_, newValues_);
+        return
+            IQueryBuilder(_queryBuilders[validatorCircuitId_]).buildQuery(
+                currentQueryData_,
+                newValues_
+            );
     }
 
     function getProtocolQuery(

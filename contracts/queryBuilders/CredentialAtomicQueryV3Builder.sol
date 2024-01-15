@@ -5,9 +5,9 @@ import {CredentialAtomicQueryV3Validator} from "@iden3/contracts/validators/Cred
 
 import {AbstractQueryBuilder} from "./AbstractQueryBuilder.sol";
 
-contract CredentialAtomicQueryBuilderV3 is AbstractQueryBuilder {
+contract CredentialAtomicQueryV3Builder is AbstractQueryBuilder {
     function getBuilderName() external pure override returns (string memory) {
-        return "CredentialAtomicQueryBuilderV3";
+        return "CredentialAtomicQueryV3Builder";
     }
 
     function buildQuery(

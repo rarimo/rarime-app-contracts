@@ -34,7 +34,7 @@ interface IProtocolQueriesManager {
     function getQueryBuilder(string memory validatorCircuitId_) external view returns (address);
 
     function getDynamicQueryData(
-        address validatorAddr_,
+        string memory validatorCircuitId_,
         uint256[] memory newValues_,
         bytes memory currentQueryData_
     ) external view returns (bytes memory);

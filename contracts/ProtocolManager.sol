@@ -194,7 +194,7 @@ contract ProtocolManager is IProtocolManager, OwnableUpgradeable {
                 }
 
                 currentQuery_.queryData = queriesManager.getDynamicQueryData(
-                    currentQuery_.validatorAddr,
+                    validatorCircuitId_,
                     fieldValue_.asSingletonArray(),
                     currentQuery_.queryData
                 );

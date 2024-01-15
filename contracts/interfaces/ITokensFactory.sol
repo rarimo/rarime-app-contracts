@@ -19,4 +19,6 @@ interface ITokensFactory {
     function verifiedSBTBeacon() external view returns (ProxyBeacon);
 
     function protocolManagerAddr() external view returns (address);
+
+    function getVerifiedSBTImpl() external view returns (address);
 }

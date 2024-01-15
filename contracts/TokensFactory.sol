@@ -33,11 +33,11 @@ contract TokensFactory is ITokensFactory, OwnableUpgradeable {
         _setNewImplementation(verifiedSBTImplAddr_);
     }
 
-    function setNewImplementation(address newVerifiedSBTImpl_) external onlyOwner {
+    function setNewImplementation(address newVerifiedSBTImpl_) external override onlyOwner {
         _setNewImplementation(newVerifiedSBTImpl_);
     }
 
-    function setProtocolManagerAddr(address newProtocolManager_) external onlyOwner {
+    function setProtocolManagerAddr(address newProtocolManager_) external override onlyOwner {
         protocolManagerAddr = newProtocolManager_;
     }
 
@@ -45,7 +45,7 @@ contract TokensFactory is ITokensFactory, OwnableUpgradeable {
         string calldata name_,
         string calldata symbol_,
         string calldata baseURI_
-    ) external onlyProtocolManager returns (address) {
+    ) external override onlyProtocolManager returns (address) {
         address newVerifiedSBTProxy_ = address(
             new PublicBeaconProxy(address(verifiedSBTBeacon), "")
         );
@@ -53,6 +53,10 @@ contract TokensFactory is ITokensFactory, OwnableUpgradeable {
         IVerifiedSBT(newVerifiedSBTProxy_).init(name_, symbol_, baseURI_, protocolManagerAddr);
 
         return newVerifiedSBTProxy_;
+    }
+
+    function getVerifiedSBTImpl() external view override returns (address) {
+        return verifiedSBTBeacon.implementation();
     }
 
     function _setNewImplementation(address newImplementation_) internal {
