@@ -37,12 +37,6 @@ const config: HardhatUserConfig = {
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
-    chapel: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545",
-      accounts: privateKey(),
-      gasMultiplier: 1.2,
-      timeout: 60000,
-    },
     mumbai: {
       url: `https://rpc-mumbai.maticvigil.com/`,
       accounts: privateKey(),
@@ -50,11 +44,6 @@ const config: HardhatUserConfig = {
     },
     fuji: {
       url: `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_KEY}`,
-      accounts: privateKey(),
-      gasMultiplier: 1.2,
-    },
-    bsc: {
-      url: "https://bsc-dataseed.binance.org/",
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
@@ -76,13 +65,12 @@ const config: HardhatUserConfig = {
     },
   },
   solidity: {
-    version: "0.8.20",
+    version: "0.8.16",
     settings: {
       optimizer: {
         enabled: true,
         runs: 200,
       },
-      evmVersion: "paris",
     },
   },
   etherscan: {

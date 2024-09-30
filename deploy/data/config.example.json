@@ -1,0 +1,16 @@
+{
+  "poseidonFacade": "",
+  "initDefaultQueries": [
+    {
+      "queryName": "ORGANIZATION_ADMIN",
+      "query": {
+        "metadata": "Organization admin schema query",
+        "validatorAddr": "0xf39fd6e51aad8...ab8827279cfffb92266",
+        "queryData": "0x",
+        "isGroupLevel": false,
+        "isStaticQuery": true
+      },
+      "isAdding": true
+    }
+  ]
+}
